@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <title>Asset Proxy Address Generator</title>
+    <title>ISIN-Salt Proxy Factory</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -10,7 +10,7 @@
         margin: auto;
         padding: 20px;
       }
-      input, button {
+      input, button, select {
         padding: 8px;
         margin: 8px 0;
         width: 300px;
@@ -30,7 +30,19 @@
     </style>
   </head>
   <body>
-    <input type="text" id="isinInput" placeholder="Enter ISIN (e.g., USN070592100)">
+    <input type="text" id="isinInput" placeholder="Enter ISIN">
+    <select id="exampleIsins" onchange="selectExample()">
+        <option value="">-- Select Example --</option>
+        <option value="USN070592100">ASML</option>
+        <option value="US03945R1023">ACHR</option>
+        <option value="CA53681J1030">LAC</option>
+        <option value="US9229075067">VMSXX</option>
+        <option value="US594972AR21">MSTR 0 12/01/29</option>
+        <option value="USU19328AB62">COIN 3.625 10/01/31 REGS</option>
+        <option value="US46647PCE43">JPM V3.328 04/22/52</option>
+        <option value="XS1405762805">TKAAV 1.5 12/07/26</option>
+        <option value="US784ESCAU91">SIVB 0 02/02/31</option>
+    </select>
     <button onclick="computeAddress()">Generate Address</button>
     <div id="result"></div>
 
@@ -38,34 +50,70 @@
       const DUMMY_FACTORY = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
       const DUMMY_CODEHASH = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
 
-      // Simple mock keccak256 hash simulation
+      // Improved mock keccak256 hash simulation
       function mockKeccak256(input) {
+        // Convert input to bytes if it's a string
+        const bytes = typeof input === 'string' 
+          ? new TextEncoder().encode(input) 
+          : input;
+        
         let hash = 0;
-        for (let i = 0; i < input.length; i++) {
-          hash = (hash << 5) - hash + input.charCodeAt(i);
+        for (let i = 0; i < bytes.length; i++) {
+          hash = (hash << 5) - hash + bytes[i];
           hash |= 0;
         }
         return '0x' + Math.abs(hash).toString(16).padStart(64, '0');
       }
 
+      function hexToBytes(hex) {
+        const bytes = new Uint8Array((hex.length - 2) / 2);
+        for (let i = 2; i < hex.length; i += 2) {
+          bytes[(i/2)-1] = parseInt(hex.substr(i, 2), 16);
+        }
+        return bytes;
+      }
+
+      function validateISIN(isin) {
+        return /^[A-Z]{2}[A-Z0-9]{9}\d$/.test(isin);
+      }
+
+      function selectExample() {
+        const select = document.getElementById('exampleIsins');
+        const isinInput = document.getElementById('isinInput');
+        isinInput.value = select.value;
+      }
+
       function computeAddress() {
-        const isin = document.getElementById('isinInput').value.trim();
+        const isin = document.getElementById('isinInput').value.trim().toUpperCase();
+        
         if (!isin) {
           alert("Please enter an ISIN");
           return;
         }
+        
+        if (!validateISIN(isin)) {
+          alert("Invalid ISIN format. Expected format: AA0000000000");
+          return;
+        }
 
+        // Generate salt from ISIN
         const salt = mockKeccak256(isin);
+        
+        // Construct CREATE2 payload: 0xff + factory + salt + codehash
         const payload = `0xff${DUMMY_FACTORY.slice(2)}${salt.slice(2)}${DUMMY_CODEHASH.slice(2)}`;
-        const addressHash = mockKeccak256(payload);
-        const address = "0x" + addressHash.slice(-40);
+        const payloadBytes = hexToBytes(payload);
+        
+        // Hash the payload and take last 20 bytes (40 chars) for address
+        const addressHash = mockKeccak256(payloadBytes);
+        const address = "0x" + addressHash.slice(-40).toLowerCase();
 
         document.getElementById('result').innerHTML = `
           <strong>ISIN:</strong> ${isin}<br>
           <strong>Generated Salt:</strong> ${salt}<br>
           <strong>Predicted Proxy Address:</strong> ${address}<br>
           <br>
-          <small>Note: Simulation - not real blockchain addresses</small>
+          <small>Note: This is a simulation using dummy factory and codehash values.</small>
+          <small>Actual blockchain addresses would use real contract details.</small>
         `;
       }
     </script>

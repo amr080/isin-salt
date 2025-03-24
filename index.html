@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Asset Proxy Address Generator</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: auto;
+        padding: 20px;
+      }
+      input, button {
+        padding: 8px;
+        margin: 8px 0;
+        width: 300px;
+        display: block;
+      }
+      #result {
+        margin-top: 15px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        background: #f9f9f9;
+        word-wrap: break-word;
+        font-family: monospace;
+      }
+      small {
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <input type="text" id="isinInput" placeholder="Enter ISIN (e.g., USN070592100)">
+    <button onclick="computeAddress()">Generate Address</button>
+    <div id="result"></div>
+
+    <script>
+      const DUMMY_FACTORY = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+      const DUMMY_CODEHASH = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+
+      // Simple mock keccak256 hash simulation
+      function mockKeccak256(input) {
+        let hash = 0;
+        for (let i = 0; i < input.length; i++) {
+          hash = (hash << 5) - hash + input.charCodeAt(i);
+          hash |= 0;
+        }
+        return '0x' + Math.abs(hash).toString(16).padStart(64, '0');
+      }
+
+      function computeAddress() {
+        const isin = document.getElementById('isinInput').value.trim();
+        if (!isin) {
+          alert("Please enter an ISIN");
+          return;
+        }
+
+        const salt = mockKeccak256(isin);
+        const payload = `0xff${DUMMY_FACTORY.slice(2)}${salt.slice(2)}${DUMMY_CODEHASH.slice(2)}`;
+        const addressHash = mockKeccak256(payload);
+        const address = "0x" + addressHash.slice(-40);
+
+        document.getElementById('result').innerHTML = `
+          <strong>ISIN:</strong> ${isin}<br>
+          <strong>Generated Salt:</strong> ${salt}<br>
+          <strong>Predicted Proxy Address:</strong> ${address}<br>
+          <br>
+          <small>Note: Simulation - not real blockchain addresses</small>
+        `;
+      }
+    </script>
+  </body>
+</html>
